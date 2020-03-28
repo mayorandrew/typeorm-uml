@@ -196,13 +196,13 @@ class TypeormUmlCommand extends Command {
 	private buildUml( connection: Connection ): string {
 		let uml = `@startuml\n\n`;
 
-		uml += `!define table(x) class x << (T,#FFAAAA) >>\n`;
-		uml += `!define pkey(x) <b>x</b>\n`;
+		uml += `!define table(ename, tname) entity "<b>ename</b>\\n<font size="10" color="gray">tname</font>" as ename\n`;
+		uml += `!define column(pname, tname, type) pname    <font color="#a9a9a9">tname</font><font color="gray">: type</font>\n`;
 		uml += `hide stereotypes\n`;
-		uml += `hide methods\n\n`;
+		uml += `hide methods\n`;
 		uml += `hide circle\n\n`;
 
-		if ( flags.monochrome ) {
+		if ( this.flags.monochrome ) {
 			uml += `skinparam monochrome true\n\n`;
 		}
 
@@ -252,7 +252,7 @@ class TypeormUmlCommand extends Command {
 	 * @returns {string} An uml class string.
 	 */
 	private buildClass( entity: EntityMetadata, connection: Connection ): [string,string] {
-		let uml = `\nentity "<b>${entity.name}</b>\\n<font size="10" color="gray">${ entity.tableNameWithoutPrefix }</font>" as ${this.getEntityKey(entity)} {\n`;
+		let uml = `\ntable(${this.getEntityKey(entity)}, ${entity.tableNameWithoutPrefix}) {\n`;
 
 		for ( let i = 0, len = entity.columns.length; i < len; i++ ) {
 			uml += this.buildColumn( entity.columns[i], entity, connection );
@@ -301,7 +301,7 @@ class TypeormUmlCommand extends Command {
 		}
 
 		const columnType = `${ type.toUpperCase() }${ length }`;
-		const columnInfo = `<b>${column.propertyName}</b>    <font color="#a9a9a9">${column.databaseName}</font><font color="gray">: ${columnType}</font>`;
+		const columnInfo = `column(${column.propertyName}, ${column.databaseName}, ${columnType})`;
 		return `\t${ prefix }${ columnInfo }\n`;
 	}
 
