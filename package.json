@@ -2,7 +2,10 @@
 	"name": "@proscom/typeorm-uml",
 	"version": "1.2.0",
 	"description": "Generates UML diagrams for TypeORM projects",
-	"author": "Andrew Starostin <a.starostin@proscom.ru>, Eugene Manuilov <eugene.manuilov@gmail.com>",
+	"author": "Andrew Starostin <a.starostin@proscom.ru>",
+	"contributors": [
+		"Eugene Manuilov <eugene.manuilov@gmail.com>"
+	],
 	"license": "MIT",
 	"homepage": "https://github.com/mayorandrew/typeorm-uml#readme",
 	"bugs": {

@@ -4,7 +4,7 @@ A command line tool to generate UML diagrams for Typeorm projects.
 It uses [plantuml](https://plantuml.com/) to render diagrams and outputs an URL to a diagram.
 It can also output diagram definition in the plnatuml syntax. 
 
-This is a fork of [https://github.com/eugene-manuilov/typeorm-uml]()
+This is a fork of <https://github.com/eugene-manuilov/typeorm-uml>
 with couple of additional features:
 * output plantuml syntax instead of the url
 * output entity/property or table/column names or both
@@ -38,6 +38,8 @@ Then run `npm run db:diagram` and you will receive an URL to an image with your 
 ## Synopsis
 
 ```sh-session
+Generates a database UML diagram based on Typeorm entities.
+
 USAGE
   $ typeorm-uml [CONFIGNAME]
 
@@ -47,11 +49,29 @@ ARGUMENTS
 OPTIONS
   -c, --connection=connection  [default: default] The connection name.
   -d, --download=download      The filename where to download the diagram.
-  -e, --exclude=exclude        Comma-separated list of entities to exclude from the diagram.
+
+  -e, --exclude=exclude        Comma-separated list of entities to exclude from
+                               the diagram.
+
   -f, --format=png|svg|txt     [default: png] The diagram file format.
-  -i, --include=include        Comma-separated list of entities to include into the diagram.
-  --uml                        Outputs plantuml syntax instead of the url
+
+  -i, --include=include        Comma-separated list of entities to include into
+                               the diagram.
+
+  -n, --names=entities|tables  [default: tables] Specify which names to output:
+                               typeorm names, database names or both.
+
+  -u, --uml                    Outputs plantuml syntax instead of the url.
+
   --monochrome                 Whether or not to use monochrome colors.
+```
+
+## RegExp
+
+To use regular expressions in include/exclude, simply wrap them in the `//`.
+
+```sh-session
+typeorm-uml ormconfig.json -i /^User/ -e /Role/
 ```
 
 ## Typescript
