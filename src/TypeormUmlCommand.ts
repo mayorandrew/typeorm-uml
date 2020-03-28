@@ -7,6 +7,7 @@ import * as plantumlEncoder from 'plantuml-encoder';
 import { createConnection, EntityMetadata, Connection, ConnectionOptionsReader } from 'typeorm';
 import { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata';
 import { ForeignKeyMetadata } from 'typeorm/metadata/ForeignKeyMetadata';
+import { OutputFlags } from '@oclif/parser';
 
 interface ColumnDataTypeDefaults {
 	length?: string,
@@ -22,6 +23,34 @@ interface TypeormUmlCommandFlags {
 	include?: string,
 	exclude?: string,
 }
+
+const parseFlagsArray = (items: string) =>
+	( items || '' )
+		.split( ',' )
+		.map(item => item.trim())
+		.filter( ( item ) => item.length )
+		.map(item => {
+			const matches = item.match(/^\/(.+)\/$/);
+			if (matches) {
+				return new RegExp(matches[1]);
+			}
+			return item;
+		});
+
+const isInArray = (target: string, items: Array<string|RegExp>) => {
+	for (const item of items) {
+		if (typeof item === 'string') {
+			if (item === target) {
+				return true;
+			}
+		} else if (item instanceof RegExp) {
+			if (target.match(item)) {
+				return true;
+			}
+		}
+	}
+	return false;
+};
 
 class TypeormUmlCommand extends Command {
 
@@ -71,6 +100,10 @@ class TypeormUmlCommand extends Command {
 		} ),
 	};
 
+	flags: OutputFlags<typeof TypeormUmlCommand.flags>;
+	include?: Array<string|RegExp>;
+	exclude?: Array<string|RegExp>;
+
 	/**
 	 * Executes this command.
 	 *
@@ -80,11 +113,15 @@ class TypeormUmlCommand extends Command {
 	public async run(): Promise<any> {
 		try {
 			const { args, flags } = this.parse( TypeormUmlCommand );
+			this.flags = flags;
+			this.exclude = parseFlagsArray( this.flags.exclude );
+			this.include = parseFlagsArray( this.flags.include );
+
 			if (flags.uml) {
-				const uml = await this.getUml(args.configName, flags);
+				const uml = await this.getUml(args.configName);
 				process.stdout.write(`${uml}\n`);
 			} else {
-				const url = await this.getUrl(args.configName, flags);
+				const url = await this.getUrl(args.configName);
 				if (flags.download) {
 					await this.download(url, flags.download);
 				} else {
@@ -96,16 +133,16 @@ class TypeormUmlCommand extends Command {
 		}
 	}
 
-	private async getUml(configName: string, flags: TypeormUmlCommandFlags) {
+	private async getUml(configName: string) {
 		const connectionOptionsReader = new ConnectionOptionsReader( {
 			root: process.cwd(),
 			configName,
 		} );
 
-		const connectionOptions = await connectionOptionsReader.get( flags.connection );
+		const connectionOptions = await connectionOptionsReader.get( this.flags.connection );
 		const connection = await createConnection( connectionOptions );
 
-		const uml = this.buildUml( connection, flags );
+		const uml = this.buildUml( connection );
 
 		connection.close();
 
@@ -118,14 +155,13 @@ class TypeormUmlCommand extends Command {
 	 * @async
 	 * @private
 	 * @param {string} configName A path to Typeorm config file.
-	 * @param {TypeormUmlCommandFlags} flags An object with command flags.
 	 * @returns {string} A plantuml string.
 	 */
-	private async getUrl( configName: string, flags: TypeormUmlCommandFlags ): Promise<string> {
-		const uml = await this.getUml(configName, flags);
+	private async getUrl( configName: string ): Promise<string> {
+		const uml = await this.getUml(configName);
 		const encodedUml = plantumlEncoder.encode( uml );
 
-		const format = encodeURIComponent( flags.format );
+		const format = encodeURIComponent( this.flags.format );
 		const schema = encodeURIComponent( encodedUml );
 
 		return `http://www.plantuml.com/plantuml/${ format }/${ schema }`;
@@ -155,10 +191,9 @@ class TypeormUmlCommand extends Command {
 	 *
 	 * @private
 	 * @param {Connection} connection A database connection.
-	 * @param {TypeormUmlCommandFlags} flags An object with command flags.
 	 * @returns {string} An uml string.
 	 */
-	private buildUml( connection: Connection, flags: TypeormUmlCommandFlags ): string {
+	private buildUml( connection: Connection ): string {
 		let uml = `@startuml\n\n`;
 
 		uml += `!define table(x) class x << (T,#FFAAAA) >>\n`;
@@ -171,19 +206,12 @@ class TypeormUmlCommand extends Command {
 			uml += `skinparam monochrome true\n\n`;
 		}
 
-		const exclude = ( flags.exclude || '' ).split( ',' ).filter( ( item ) => item.trim().length );
-		const include = ( flags.include || '' ).split( ',' ).filter( ( item ) => item.trim().length );
-
 		let foreignUmls = "";
 
 		for ( let i = 0, len = connection.entityMetadatas.length; i < len; i++ ) {
 			const entity = connection.entityMetadatas[i];
 
-			if ( exclude.includes( entity.name ) ) {
-				continue;
-			}
-
-			if ( include.length && ! include.includes( entity.name ) ) {
+			if (!this.isEntityIncluded(entity)) {
 				continue;
 			}
 
@@ -201,6 +229,18 @@ class TypeormUmlCommand extends Command {
 
 	private getEntityKey(entity: EntityMetadata) {
 		return entity.name;
+	}
+
+	private isEntityIncluded(entity: EntityMetadata) {
+		if ( isInArray(entity.name, this.exclude) ) {
+			return false;
+		}
+
+		if ( this.include.length > 0 && !isInArray(entity.name, this.include)) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -274,6 +314,9 @@ class TypeormUmlCommand extends Command {
 	 * @returns {string} An uml connection string.
 	 */
 	private buildForeignKeys( foreignKey: ForeignKeyMetadata, entity: EntityMetadata ): string {
+		if (!this.isEntityIncluded(foreignKey.referencedEntityMetadata)) {
+			return '';
+		}
 		const referencedEntity = this.getEntityKey(foreignKey.referencedEntityMetadata);
 		if (foreignKey.columns.length === 1) {
 			const column = foreignKey.columns[0];
