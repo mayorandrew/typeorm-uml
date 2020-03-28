@@ -164,7 +164,8 @@ class TypeormUmlCommand extends Command {
 		uml += `!define table(x) class x << (T,#FFAAAA) >>\n`;
 		uml += `!define pkey(x) <b>x</b>\n`;
 		uml += `hide stereotypes\n`;
-		uml += `hide fields\n\n`;
+		uml += `hide methods\n\n`;
+		uml += `hide circle\n\n`;
 
 		if ( flags.monochrome ) {
 			uml += `skinparam monochrome true\n\n`;
@@ -172,6 +173,8 @@ class TypeormUmlCommand extends Command {
 
 		const exclude = ( flags.exclude || '' ).split( ',' ).filter( ( item ) => item.trim().length );
 		const include = ( flags.include || '' ).split( ',' ).filter( ( item ) => item.trim().length );
+
+		let foreignUmls = "";
 
 		for ( let i = 0, len = connection.entityMetadatas.length; i < len; i++ ) {
 			const entity = connection.entityMetadatas[i];
@@ -184,12 +187,20 @@ class TypeormUmlCommand extends Command {
 				continue;
 			}
 
-			uml += this.buildClass( entity, connection );
+			const [classUml, foreignUml] = this.buildClass( entity, connection );
+			uml += classUml;
+			foreignUmls += foreignUml;
 		}
+
+		uml += foreignUmls;
 
 		uml += `@enduml\n`;
 
 		return uml;
+	}
+
+	private getEntityKey(entity: EntityMetadata) {
+		return entity.name;
 	}
 
 	/**
@@ -200,8 +211,8 @@ class TypeormUmlCommand extends Command {
 	 * @param {Connection} connection A database connection.
 	 * @returns {string} An uml class string.
 	 */
-	private buildClass( entity: EntityMetadata, connection: Connection ): string {
-		let uml = `\ntable( ${ entity.tableNameWithoutPrefix } ) {\n`;
+	private buildClass( entity: EntityMetadata, connection: Connection ): [string,string] {
+		let uml = `\nentity "<b>${entity.name}</b>\\n<font size="10" color="gray">${ entity.tableNameWithoutPrefix }</font>" as ${this.getEntityKey(entity)} {\n`;
 
 		for ( let i = 0, len = entity.columns.length; i < len; i++ ) {
 			uml += this.buildColumn( entity.columns[i], entity, connection );
@@ -209,11 +220,12 @@ class TypeormUmlCommand extends Command {
 
 		uml += `}\n\n`;
 
+		let foreignKeysUml = "";
 		for ( let i = 0, len = entity.foreignKeys.length; i < len; i++ ) {
-			uml += this.buildForeignKeys( entity.foreignKeys[i], entity );
+			foreignKeysUml += this.buildForeignKeys( entity.foreignKeys[i], entity );
 		}
 
-		return uml;
+		return [uml, foreignKeysUml];
 	}
 
 	/**
@@ -226,12 +238,10 @@ class TypeormUmlCommand extends Command {
 	 * @returns {string} An uml column string.
 	 */
 	private buildColumn( column: ColumnMetadata, entity: EntityMetadata, connection: Connection ): string {
-		let columnName = column.databaseName;
 		let prefix = '';
 
 		if ( column.isPrimary ) {
 			prefix = '+';
-			columnName = `pkey( ${ columnName } )`;
 		} else if ( Array.isArray( entity.indices ) && entity.indices.length > 0 ) {
 			const index = entity.indices.find( ( idx ) => idx.columns.map( column => column.databaseName ).includes( column.databaseName ) );
 			if ( index ) {
@@ -250,7 +260,9 @@ class TypeormUmlCommand extends Command {
 			length = `(${ length })`;
 		}
 
-		return `\t{method} ${ prefix }${ columnName }: ${ type.toUpperCase() }${ length }\n`;
+		const columnType = `${ type.toUpperCase() }${ length }`;
+		const columnInfo = `<b>${column.propertyName}</b>    <font color="#a9a9a9">${column.databaseName}</font><font color="gray">: ${columnType}</font>`;
+		return `\t${ prefix }${ columnInfo }\n`;
 	}
 
 	/**
@@ -262,7 +274,13 @@ class TypeormUmlCommand extends Command {
 	 * @returns {string} An uml connection string.
 	 */
 	private buildForeignKeys( foreignKey: ForeignKeyMetadata, entity: EntityMetadata ): string {
-		return `${ entity.tableNameWithoutPrefix } "\*" --> "1" ${ foreignKey.referencedTablePath }\n\n`;
+		const referencedEntity = this.getEntityKey(foreignKey.referencedEntityMetadata);
+		if (foreignKey.columns.length === 1) {
+			const column = foreignKey.columns[0];
+			return `${this.getEntityKey(entity)}::${column.propertyName} --> ${referencedEntity}\n\n`;
+		} else {
+			return `${this.getEntityKey(entity)} --> ${referencedEntity}\n\n`;
+		}
 	}
 
 	/**
