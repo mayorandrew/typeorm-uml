@@ -56,6 +56,11 @@ class TypeormUmlCommand extends Command {
 			char: 'd',
 			description: 'The filename where to download the diagram.',
 		} ),
+		uml: flags.boolean( {
+			char: 'u',
+			description: 'Outputs plantuml syntax instead of the url',
+			default: false
+		} ),
 		exclude: flags.string( {
 			char: 'e',
 			description: 'Comma-separated list of entities to exclude from the diagram.',
@@ -68,22 +73,43 @@ class TypeormUmlCommand extends Command {
 
 	/**
 	 * Executes this command.
-	 * 
+	 *
 	 * @async
 	 * @public
 	 */
 	public async run(): Promise<any> {
 		try {
 			const { args, flags } = this.parse( TypeormUmlCommand );
-			const url = await this.getUrl( args.configName, flags );
-			if ( flags.download ) {
-				await this.download( url, flags.download );
+			if (flags.uml) {
+				const uml = await this.getUml(args.configName, flags);
+				process.stdout.write(`${uml}\n`);
 			} else {
-				process.stdout.write( `${ url }\n` );
+				const url = await this.getUrl(args.configName, flags);
+				if (flags.download) {
+					await this.download(url, flags.download);
+				} else {
+					process.stdout.write(`${url}\n`);
+				}
 			}
 		} catch ( e ) {
 			this.error( e.message );
 		}
+	}
+
+	private async getUml(configName: string, flags: TypeormUmlCommandFlags) {
+		const connectionOptionsReader = new ConnectionOptionsReader( {
+			root: process.cwd(),
+			configName,
+		} );
+
+		const connectionOptions = await connectionOptionsReader.get( flags.connection );
+		const connection = await createConnection( connectionOptions );
+
+		const uml = this.buildUml( connection, flags );
+
+		connection.close();
+
+		return uml;
 	}
 
 	/**
@@ -96,18 +122,8 @@ class TypeormUmlCommand extends Command {
 	 * @returns {string} A plantuml string.
 	 */
 	private async getUrl( configName: string, flags: TypeormUmlCommandFlags ): Promise<string> {
-		const connectionOptionsReader = new ConnectionOptionsReader( {
-			root: process.cwd(),
-			configName,
-		} );
-
-		const connectionOptions = await connectionOptionsReader.get( flags.connection );
-		const connection = await createConnection( connectionOptions );
-
-		const uml = this.buildUml( connection, flags );
+		const uml = await this.getUml(configName, flags);
 		const encodedUml = plantumlEncoder.encode( uml );
-
-		connection.close();
 
 		const format = encodeURIComponent( flags.format );
 		const schema = encodeURIComponent( encodedUml );
@@ -117,7 +133,7 @@ class TypeormUmlCommand extends Command {
 
 	/**
 	 * Downloads image into a file.
-	 * 
+	 *
 	 * @private
 	 * @param {string} url The URL to download.
 	 * @param {string} filename The output filename.
@@ -167,7 +183,7 @@ class TypeormUmlCommand extends Command {
 			if ( include.length && ! include.includes( entity.name ) ) {
 				continue;
 			}
-			
+
 			uml += this.buildClass( entity, connection );
 		}
 
