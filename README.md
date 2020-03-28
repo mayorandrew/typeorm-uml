@@ -1,15 +1,23 @@
-# typeorm-uml 1.1.2
+# @proscom/typeorm-uml 1.2.0
 
 A command line tool to generate UML diagrams for Typeorm projects. 
 It uses [plantuml](https://plantuml.com/) to render diagrams and outputs an URL to a diagram.
 It can also output diagram definition in the plnatuml syntax. 
 
-## Instalation
+This is a fork of [https://github.com/eugene-manuilov/typeorm-uml]()
+with couple of additional features:
+* output plantuml syntax instead of the url
+* output entity/property or table/column names or both
+* use regexp in include/exclude
+
+## Installation
 
 Install this command as a development dependency to your project:
 
 ```sh-session
-npm i -D typeorm-urml
+npm i -D @proscom/typeorm-uml
+// or
+yarn add --dev @proscom/typeorm-uml
 ```
 
 ## Usage
@@ -51,7 +59,7 @@ OPTIONS
 If you use `.ts` entities in your Typeorm config, then run this command with `ts-node` like this:
 
 ```sh-session
-ts-node ./node_modules/typeorm-uml/bin/run ormconfig.json
+ts-node ./node_modules/@proscom/typeorm-uml/bin/run ormconfig.json
 ```
 
 ## Example
@@ -66,7 +74,7 @@ typeorm-uml --format=svg --monochrome
 
 ## Contribute
 
-Want to help or have a suggestion? Open a [new ticket](https://github.com/eugene-manuilov/typeorm-uml/issues/new) and we can discuss it or submit a pull request.
+Want to help or have a suggestion? Open a [new ticket](https://github.com/mayorandrew/typeorm-uml/issues/new) and we can discuss it or submit a pull request.
 
 ## License
 
