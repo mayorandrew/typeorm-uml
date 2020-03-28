@@ -1,6 +1,8 @@
 # typeorm-uml 1.1.2
 
-A command line tool to generate UML diagrams for Typeorm projects. It uses [plantuml](https://plantuml.com/) to render diagrams and outputs an URL to a diagram.
+A command line tool to generate UML diagrams for Typeorm projects. 
+It uses [plantuml](https://plantuml.com/) to render diagrams and outputs an URL to a diagram.
+It can also output diagram definition in the plnatuml syntax. 
 
 ## Instalation
 
@@ -40,6 +42,7 @@ OPTIONS
   -e, --exclude=exclude        Comma-separated list of entities to exclude from the diagram.
   -f, --format=png|svg|txt     [default: png] The diagram file format.
   -i, --include=include        Comma-separated list of entities to include into the diagram.
+  --uml                        Outputs plantuml syntax instead of the url
   --monochrome                 Whether or not to use monochrome colors.
 ```
 
@@ -48,7 +51,7 @@ OPTIONS
 If you use `.ts` entities in your Typeorm config, then run this command with `ts-node` like this:
 
 ```sh-session
-ts-node ./node_modules/.bin/typeorm-uml ormconfig.json
+ts-node ./node_modules/typeorm-uml/bin/run ormconfig.json
 ```
 
 ## Example
