@@ -52,6 +52,11 @@ const isInArray = (target: string, items: Array<string|RegExp>) => {
 	return false;
 };
 
+enum NamesEnum {
+	Entities = 'entities',
+	Tables = 'tables'
+}
+
 class TypeormUmlCommand extends Command {
 
 	static description = 'Generates a database UML diagram based on Typeorm entities.';
@@ -87,8 +92,15 @@ class TypeormUmlCommand extends Command {
 		} ),
 		uml: flags.boolean( {
 			char: 'u',
-			description: 'Outputs plantuml syntax instead of the url',
+			description: 'Outputs plantuml syntax instead of the url.',
 			default: false
+		} ),
+		names: flags.string( {
+			char: 'n',
+			multiple: true,
+			options: [NamesEnum.Entities, NamesEnum.Tables],
+			description: 'Specify which names to output: typeorm names, database names or both.',
+			default: [NamesEnum.Tables]
 		} ),
 		exclude: flags.string( {
 			char: 'e',
@@ -103,6 +115,8 @@ class TypeormUmlCommand extends Command {
 	flags: OutputFlags<typeof TypeormUmlCommand.flags>;
 	include?: Array<string|RegExp>;
 	exclude?: Array<string|RegExp>;
+	outEntities: boolean = false;
+	outTables: boolean = false;
 
 	/**
 	 * Executes this command.
@@ -116,6 +130,8 @@ class TypeormUmlCommand extends Command {
 			this.flags = flags;
 			this.exclude = parseFlagsArray( this.flags.exclude );
 			this.include = parseFlagsArray( this.flags.include );
+			this.outEntities = this.flags.names.includes(NamesEnum.Entities);
+			this.outTables = this.flags.names.includes(NamesEnum.Tables);
 
 			if (flags.uml) {
 				const uml = await this.getUml(args.configName);
@@ -196,8 +212,19 @@ class TypeormUmlCommand extends Command {
 	private buildUml( connection: Connection ): string {
 		let uml = `@startuml\n\n`;
 
-		uml += `!define table(ename, tname) entity "<b>ename</b>\\n<font size="10" color="gray">tname</font>" as ename\n`;
-		uml += `!define column(pname, tname, type) pname    <font color="#a9a9a9">tname</font><font color="gray">: type</font>\n`;
+		if (this.outEntities && this.outTables) {
+			uml += `!define table(ename, tname) entity "<b>ename</b>\\n<font size="10" color="gray">tname</font>" as ename\n`;
+			uml += `!define column(pname, tname, type) pname    <font color="#a9a9a9">tname</font><font color="gray">: type</font>\n`;
+		} else if (this.outEntities) {
+			uml += `!define table(ename, tname) entity ename\n`;
+			uml += `!define column(pname, tname, type) pname<font color="gray">: type</font>\n`;
+		} else if (this.outTables) {
+			uml += `!define table(ename, tname) entity "tname" as ename\n`;
+			uml += `!define column(pname, tname, type) tname<font color="gray">: type</font>\n`;
+		} else {
+			throw new Error('Please specify what names to output using --names argument');
+		}
+
 		uml += `hide stereotypes\n`;
 		uml += `hide methods\n`;
 		uml += `hide circle\n\n`;
@@ -229,6 +256,14 @@ class TypeormUmlCommand extends Command {
 
 	private getEntityKey(entity: EntityMetadata) {
 		return entity.name;
+	}
+
+	private getColumnKey(column: ColumnMetadata) {
+		if (this.outEntities) {
+			return column.propertyName;
+		} else {
+			return column.databaseName;
+		}
 	}
 
 	private isEntityIncluded(entity: EntityMetadata) {
@@ -317,12 +352,12 @@ class TypeormUmlCommand extends Command {
 		if (!this.isEntityIncluded(foreignKey.referencedEntityMetadata)) {
 			return '';
 		}
-		const referencedEntity = this.getEntityKey(foreignKey.referencedEntityMetadata);
+		const referencedEntityKey = this.getEntityKey(foreignKey.referencedEntityMetadata);
 		if (foreignKey.columns.length === 1) {
 			const column = foreignKey.columns[0];
-			return `${this.getEntityKey(entity)}::${column.propertyName} --> ${referencedEntity}\n\n`;
+			return `${this.getEntityKey(entity)}::${this.getColumnKey(column)} --> ${referencedEntityKey}\n\n`;
 		} else {
-			return `${this.getEntityKey(entity)} --> ${referencedEntity}\n\n`;
+			return `${this.getEntityKey(entity)} --> ${referencedEntityKey}\n\n`;
 		}
 	}
 
